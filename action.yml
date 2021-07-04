@@ -1,0 +1,31 @@
+name: 'Pulumi Set Config'
+author: Cobraz
+description: Pulumi's GitHub Actions deploy apps and infrastructure to your cloud of choice, using just your favorite language and GitHub.
+branding:
+  icon: upload-cloud
+  color: purple
+inputs:
+  stack-name:
+    description: 'Which stack you want to apply to, eg. dev'
+    required: true
+  work-dir:
+    description: 'Location of your Pulumi files. Defaults to ./'
+    required: true
+    default: ./
+  key:
+    description: 'Set key value. e.g: service-name.tag'
+    required: true
+  value:
+    description: 'Value to set'
+    required: true
+  secret:
+    description: 'Store the config value as secret and hide it from output'
+    required: false
+    default: 'false'
+  cloud-url:
+    description: 'A cloud URL to log in to'
+    required: false
+    default: ''
+runs:
+  using: 'node12'
+  main: 'dist/index.js'

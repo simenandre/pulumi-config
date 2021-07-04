@@ -1,0 +1,50 @@
+name: 'build-test'
+on: # rebuild any PRs and main branch changes
+  pull_request:
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - 'README.md'
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - 'CHANGELOG.md'
+      - 'README.md'
+
+jobs:
+  build-test: # make sure build/ci work properly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: yarn install
+      - run: yarn build
+      - run: yarn test
+  test-output: # make sure the action works on a clean machine without building
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - run: yarn install
+      - run: yarn build
+
+      - name: Create local stack
+        run: |
+          pulumi login --local
+          pulumi stack init dev
+        working-directory: .github/test-stack
+        env:
+          PULUMI_CONFIG_PASSPHRASE: not-a-secret
+
+      - uses: ./
+        env:
+          PULUMI_CONFIG_PASSPHRASE: not-a-secret
+        with:
+          cloud-url: file://~
+          stack-name: dev
+          work-dir: .github/test-stack
+          key: test.value
+          value: hello-world
+          secret: true
+
+      - run: cat .github/test-stack/Pulumi.dev.yaml
