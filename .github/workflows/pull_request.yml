@@ -21,5 +21,5 @@ jobs:
 
             Thank you for this contribution!
             Due to security reasons, we only allow updating the `dist/**` files with our own workflows.
-          repo-token: ${{ secrets.PULUMI_BOT_TOKEN }}
+          repo-token: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
           repo-token-user-login: cobraz
