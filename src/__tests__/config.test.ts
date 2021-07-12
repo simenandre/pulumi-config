@@ -32,16 +32,15 @@ describe('config.ts', () => {
     const c = await makeConfig();
     expect(c).toBeTruthy();
     expect(c).toMatchInlineSnapshot(`
-      Object {
-        "cloudUrl": "file://~",
-        "githubToken": "n/a",
-        "key": "hello.there",
-        "secret": true,
-        "stackName": "dev",
-        "value": "hello",
-        "workDir": "./",
-      }
-    `);
+Object {
+  "cloudUrl": "file://~",
+  "key": "hello.there",
+  "secret": true,
+  "stackName": "dev",
+  "value": "hello",
+  "workDir": "./",
+}
+`);
   });
   it('should fail if configuration are invalid', async () => {
     const config: Record<string, string> = {
@@ -79,15 +78,14 @@ describe('config.ts', () => {
     const c = await makeConfig();
     expect(c).toBeTruthy();
     expect(c).toMatchInlineSnapshot(`
-      Object {
-        "cloudUrl": "file://~",
-        "githubToken": "n/a",
-        "key": "hello.there",
-        "secret": true,
-        "stackName": "dev",
-        "value": "hello",
-        "workDir": "./",
-      }
-    `);
+Object {
+  "cloudUrl": "file://~",
+  "key": "hello.there",
+  "secret": true,
+  "stackName": "dev",
+  "value": "hello",
+  "workDir": "./",
+}
+`);
   });
 });
