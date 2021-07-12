@@ -1,6 +1,6 @@
-name: 'Pulumi Set Config'
-author: Cobraz
-description: Pulumi's GitHub Actions deploy apps and infrastructure to your cloud of choice, using just your favorite language and GitHub.
+name: 'Pulumi Config'
+author: Simen A. W. Olsen
+description: Update Pulumi configuration with Github Actions
 branding:
   icon: upload-cloud
   color: purple
