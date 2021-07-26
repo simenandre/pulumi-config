@@ -5,10 +5,10 @@ export const config = rt.Record({
   // Required inputs
   stackName: rt.String,
   workDir: rt.String,
-  key: rt.String,
-  value: rt.String,
 
   // Optional inputs
+  key: rt.String.optional(),
+  value: rt.String.optional(),
   secret: rt.Boolean.optional(),
   cloudUrl: rt.String.optional(),
 });
@@ -21,9 +21,9 @@ export async function makeConfig(): Promise<Config> {
     stackName: getInput('stack-name', { required: true }),
     workDir: getInput('work-dir', { required: true }),
     key: getInput('key', { required: true }),
-    value: getInput('value', { required: true }),
 
     // Optional inputs
+    value: getInput('value'),
     secret: getBooleanInput('secret'),
     cloudUrl: getInput('cloud-url'),
   });

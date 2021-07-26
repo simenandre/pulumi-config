@@ -37,10 +37,26 @@ const main = async () => {
     core.setSecret(config.value);
   }
 
-  await stack.setConfig(config.key, {
-    value: config.value,
-    secret: config.secret,
-  });
+  const stackConfig = await stack.getAllConfig();
+
+  core.setOutput('config', stackConfig);
+  if (config.key && config.key in stackConfig) {
+    core.setOutput('key', stackConfig[config.key]);
+  }
+
+  if (config.value) {
+    if (!config.key) {
+      throw new Error(
+        'Missing `key` input.' +
+          'You need to set both value and key to set config values.',
+      );
+    }
+    core.info(`Setting ${config.key} to ${config.secret}`);
+    await stack.setConfig(config.key, {
+      value: config.value,
+      secret: config.secret,
+    });
+  }
 };
 
 (async () => {

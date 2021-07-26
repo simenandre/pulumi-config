@@ -14,10 +14,10 @@ inputs:
     default: ./
   key:
     description: 'Set key value. e.g: service-name.tag'
-    required: true
+    required: false
   value:
     description: 'Value to set'
-    required: true
+    required: false
   secret:
     description: 'Store the config value as secret and hide it from output'
     required: false

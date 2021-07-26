@@ -13,11 +13,11 @@
 </p>
 
 \
-This [Github Actions][] uses [Pulumi Automation API][] to update your
-stack configuration. Useful when you need to automate changes!
+This [Github Actions][] uses [Pulumi Automation API][] to update your stack configuration.
+Useful when you need to automate changes!
 
-**Warning**: No release yet! We are actively doing development, so expect
-things to fail. Development is done publicly on Github, so help is very much
+**Warning**: No release yet! We are actively doing development, so expect things
+to fail. Development is done publicly on Github, so help is very much
 appreciated!
 
 [github actions]: https://github.com/features/actions
@@ -25,12 +25,13 @@ appreciated!
 
 ---
 
-Built to make it easier and safer to update Pulumi configurations with
-Github Actions. Pulumi CLI is no longer needed – your workflow gets less
-cluttered and easier to read.
+Built to make it easier and safer to update Pulumi configurations with Github
+Actions. Pulumi CLI is no longer needed – your workflow gets less cluttered and
+easier to read.
 
 - ⚙️ Uses Pulumi to update config.
 - 🔒 Supports secrets! (also hidden from log output)
+- 📤 Reads configuration as output
 
 ## Getting Started
 
@@ -53,11 +54,47 @@ jobs:
 ## Configuration
 
 - `stack-name`: Which stack you want to apply to, e.g. `dev`. (Required)
-- `key`: Set key value. e.g: `service-name.tag` (Required)
-- `value`: Value to set (Required)
+- `key`: Set key value. e.g: `service-name.tag`
+- `value`: Value to set
 - `work-dir`: Location of your Pulumi files (Default is `./`)
-- `secret`: Store the config value as secret and hide it from output (Default is `false`)
+- `secret`: Store the config value as secret and hide it from output (Default is
+  `false`)
 - `cloud-url`: A cloud URL to log in to.
+
+## Outputs
+
+If `key` is set, the function will return that key as a simple output. That
+could look something like this:
+
+```yaml
+jobs:
+  get-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cobraz/pulumi-config@main
+        id: config
+        with:
+          stack-name: dev
+          key: unleash.tag
+      - run: echo ${{ steps.config.outputs.key }}
+```
+
+But you can also get the whole configuration, like this:
+
+```yaml
+jobs:
+  get-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: cobraz/pulumi-config@main
+        id: config
+        with:
+          stack-name: dev
+          key: unleash.tag
+      - run: echo ${{ fromJson(steps.config.outputs.config).unleash.tag }}
+```
 
 ## Contribute
 
