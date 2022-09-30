@@ -21,7 +21,7 @@
     "*.md": "prettier --write"
   },
   "dependencies": {
-    "@actions/core": "^1.4.0",
+    "@actions/core": "^1.10.0",
     "@actions/exec": "^1.1.0",
     "@actions/github": "^5.0.0",
     "@actions/io": "^1.1.1",
