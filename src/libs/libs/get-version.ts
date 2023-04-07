@@ -1,7 +1,7 @@
-import got from 'got';
 import * as rt from 'runtypes';
 import { maxSatisfying } from 'semver';
 import invariant from 'ts-invariant';
+import { fetch } from 'undici';
 
 const VersionRt = rt.Record({
   version: rt.String,
@@ -20,12 +20,12 @@ export type Version = rt.Static<typeof VersionRt>;
 const VersionsRt = rt.Array(VersionRt);
 
 export async function getVersionObject(range: string): Promise<Version> {
-  const result = await got(
+  const result = await fetch(
     'https://raw.githubusercontent.com/pulumi/docs/master/data/versions.json',
-    { responseType: 'json' },
   );
 
-  const versions = VersionsRt.check(result.body);
+  const body = await result.json();
+  const versions = VersionsRt.check(body);
 
   if (range == 'latest') {
     const latest = versions.find((v) => v.latest);
