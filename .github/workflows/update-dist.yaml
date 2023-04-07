@@ -1,20 +1,19 @@
-name: Update dist files
+name: Update dist
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main]
 
 jobs:
-  update-dist:
+  update-dist-and-release:
+    name: Update dist files and release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - run: yarn install
       - run: yarn build
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@v4.11.0
         with:
           file_pattern: dist/**
           commit_message: 'chore(dist): Update dist [automated commit]'
-          commit_user_name: Simen A. W. Olsen
+          commit_user_name: cobraz
           commit_user_email: cobraz@users.noreply.github.com
