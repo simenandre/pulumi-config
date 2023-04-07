@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@v1
+      - uses: cobraz/pulumi-config@v2
         with:
           stack-name: dev
           key: unleash.tag
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@main
+      - uses: cobraz/pulumi-config@v2
         id: config
         with:
           stack-name: dev
@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@main
+      - uses: cobraz/pulumi-config@v2
         id: config
         with:
           stack-name: dev
