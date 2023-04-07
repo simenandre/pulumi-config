@@ -1,14 +1,13 @@
 import { resolve } from 'path';
 import * as core from '@actions/core';
 import { LocalProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation';
-import { makeConfig } from './config';
+import { config } from './config';
 import { environmentVariables } from './libs/envs';
 import * as pulumiCli from './libs/pulumi-cli';
 
 const pulumiVersion = '^3';
 
 const main = async () => {
-  const config = await makeConfig();
   core.debug('Configuration is loaded');
 
   await pulumiCli.downloadCli(pulumiVersion);
