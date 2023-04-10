@@ -33,7 +33,7 @@
     "semver": "^7.3.5",
     "ts-invariant": "^0.10.3",
     "typescript": "~5.0.4",
-    "undici": "^5.21.0"
+    "undici": "^5.21.2"
   },
   "devDependencies": {
     "@types/dedent": "^0.7.0",
