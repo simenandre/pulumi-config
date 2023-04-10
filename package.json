@@ -1,7 +1,7 @@
 {
   "name": "pulumi-github-action",
   "version": "2.0.0",
-  "repository": "github:cobraz/pulumi-config",
+  "repository": "github:simenandre/pulumi-config",
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "scripts": {
