@@ -6,7 +6,7 @@
   />
 </p>
 
-<h1 align="center">cobraz/pulumi-config</h1>
+<h1 align="center">simenandre/pulumi-config</h1>
 
 <p align="center">
   <strong>Update Pulumi configuration with Github Actions</strong>
@@ -15,10 +15,6 @@
 \
 This [Github Actions][] uses [Pulumi Automation API][] to update your stack configuration.
 Useful when you need to automate changes!
-
-**Warning**: No release yet! We are actively doing development, so expect things
-to fail. Development is done publicly on Github, so help is very much
-appreciated!
 
 [github actions]: https://github.com/features/actions
 [pulumi automation api]: https://www.pulumi.com/blog/automation-api/
@@ -42,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@v2
+      - uses: simenandre/pulumi-config@v2
         with:
           stack-name: dev
           key: unleash.tag
@@ -72,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@v2
+      - uses: simenandre/pulumi-config@v2
         id: config
         with:
           stack-name: dev
@@ -88,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: cobraz/pulumi-config@v2
+      - uses: simenandre/pulumi-config@v2
         id: config
         with:
           stack-name: dev
