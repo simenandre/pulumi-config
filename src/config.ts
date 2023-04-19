@@ -1,30 +1,12 @@
-import { getBooleanInput, getInput } from '@actions/core';
-import * as rt from 'runtypes';
+import * as parsers from 'actions-parsers';
 
-export const config = rt.Record({
-  // Required inputs
-  stackName: rt.String,
-  workDir: rt.String,
+export const config = {
+  stackName: parsers.getInput('stack-name', { required: true }),
+  workDir: parsers.getInput('work-dir', { required: true }),
 
-  // Optional inputs
-  key: rt.String.optional(),
-  value: rt.String.optional(),
-  secret: rt.Boolean.optional(),
-  cloudUrl: rt.String.optional(),
-});
+  key: parsers.getInput('key', { required: true }),
+  value: parsers.getInput('value'),
 
-export type Config = rt.Static<typeof config>;
-
-export async function makeConfig(): Promise<Config> {
-  return config.check({
-    // Required inputs
-    stackName: getInput('stack-name', { required: true }),
-    workDir: getInput('work-dir', { required: true }),
-    key: getInput('key', { required: true }),
-
-    // Optional inputs
-    value: getInput('value'),
-    secret: getBooleanInput('secret'),
-    cloudUrl: getInput('cloud-url'),
-  });
-}
+  secret: parsers.getBooleanInput('secret'),
+  cloudUrl: parsers.getInput('cloud-url'),
+};

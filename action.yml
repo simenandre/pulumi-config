@@ -25,7 +25,6 @@ inputs:
   cloud-url:
     description: 'A cloud URL to log in to'
     required: false
-    default: ''
 runs:
   using: 'node16'
   main: 'dist/index.js'
