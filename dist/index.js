@@ -85915,7 +85915,7 @@ module.exports = {
   kClient: Symbol('client'),
   kParser: Symbol('parser'),
   kOnDestroyed: Symbol('destroy callbacks'),
-  kPipelining: Symbol('pipelinig'),
+  kPipelining: Symbol('pipelining'),
   kSocket: Symbol('socket'),
   kHostHeader: Symbol('host header'),
   kConnector: Symbol('connector'),
@@ -85985,38 +85985,38 @@ function parseURL (url) {
     url = new URL(url)
 
     if (!/^https?:/.test(url.origin || url.protocol)) {
-      throw new InvalidArgumentError('invalid protocol')
+      throw new InvalidArgumentError('Invalid URL protocol: the URL must start with `http:` or `https:`.')
     }
 
     return url
   }
 
   if (!url || typeof url !== 'object') {
-    throw new InvalidArgumentError('invalid url')
+    throw new InvalidArgumentError('Invalid URL: The URL argument must be a non-null object.')
   }
 
   if (url.port != null && url.port !== '' && !Number.isFinite(parseInt(url.port))) {
-    throw new InvalidArgumentError('invalid port')
+    throw new InvalidArgumentError('Invalid URL: port must be a valid integer or a string representation of an integer.')
   }
 
   if (url.path != null && typeof url.path !== 'string') {
-    throw new InvalidArgumentError('invalid path')
+    throw new InvalidArgumentError('Invalid URL path: the path must be a string or null/undefined.')
   }
 
   if (url.pathname != null && typeof url.pathname !== 'string') {
-    throw new InvalidArgumentError('invalid pathname')
+    throw new InvalidArgumentError('Invalid URL pathname: the pathname must be a string or null/undefined.')
   }
 
   if (url.hostname != null && typeof url.hostname !== 'string') {
-    throw new InvalidArgumentError('invalid hostname')
+    throw new InvalidArgumentError('Invalid URL hostname: the hostname must be a string or null/undefined.')
   }
 
   if (url.origin != null && typeof url.origin !== 'string') {
-    throw new InvalidArgumentError('invalid origin')
+    throw new InvalidArgumentError('Invalid URL origin: the origin must be a string or null/undefined.')
   }
 
   if (!/^https?:/.test(url.origin || url.protocol)) {
-    throw new InvalidArgumentError('invalid protocol')
+    throw new InvalidArgumentError('Invalid URL protocol: the URL must start with `http:` or `https:`.')
   }
 
   if (!(url instanceof URL)) {
@@ -86159,40 +86159,53 @@ function parseHeaders (headers, obj = {}) {
     const key = headers[i].toString().toLowerCase()
     let val = obj[key]
 
-    const encoding = key.length === 19 && key === 'content-disposition'
-      ? 'latin1'
-      : 'utf8'
-
     if (!val) {
       if (Array.isArray(headers[i + 1])) {
         obj[key] = headers[i + 1]
       } else {
-        obj[key] = headers[i + 1].toString(encoding)
+        obj[key] = headers[i + 1].toString('utf8')
       }
     } else {
       if (!Array.isArray(val)) {
         val = [val]
         obj[key] = val
       }
-      val.push(headers[i + 1].toString(encoding))
+      val.push(headers[i + 1].toString('utf8'))
     }
   }
+
+  // See https://github.com/nodejs/node/pull/46528
+  if ('content-length' in obj && 'content-disposition' in obj) {
+    obj['content-disposition'] = Buffer.from(obj['content-disposition']).toString('latin1')
+  }
+
   return obj
 }
 
 function parseRawHeaders (headers) {
   const ret = []
+  let hasContentLength = false
+  let contentDispositionIdx = -1
+
   for (let n = 0; n < headers.length; n += 2) {
     const key = headers[n + 0].toString()
+    const val = headers[n + 1].toString('utf8')
 
-    const encoding = key.length === 19 && key.toLowerCase() === 'content-disposition'
-      ? 'latin1'
-      : 'utf8'
-
-    const val = headers[n + 1].toString(encoding)
-
-    ret.push(key, val)
+    if (key.length === 14 && (key === 'content-length' || key.toLowerCase() === 'content-length')) {
+      ret.push(key, val)
+      hasContentLength = true
+    } else if (key.length === 19 && (key === 'content-disposition' || key.toLowerCase() === 'content-disposition')) {
+      contentDispositionIdx = ret.push(key, val) - 1
+    } else {
+      ret.push(key, val)
+    }
   }
+
+  // See https://github.com/nodejs/node/pull/46528
+  if (hasContentLength && contentDispositionIdx !== -1) {
+    ret[contentDispositionIdx] = Buffer.from(ret[contentDispositionIdx]).toString('latin1')
+  }
+
   return ret
 }
 
@@ -86346,6 +86359,21 @@ function throwIfAborted (signal) {
   }
 }
 
+const hasToWellFormed = !!String.prototype.toWellFormed
+
+/**
+ * @param {string} val
+ */
+function toUSVString (val) {
+  if (hasToWellFormed) {
+    return `${val}`.toWellFormed()
+  } else if (nodeUtil.toUSVString) {
+    return nodeUtil.toUSVString(val)
+  }
+
+  return `${val}`
+}
+
 const kEnumerableProperty = Object.create(null)
 kEnumerableProperty.enumerable = true
 
@@ -86355,7 +86383,7 @@ module.exports = {
   isDisturbed,
   isErrored,
   isReadable,
-  toUSVString: nodeUtil.toUSVString || ((val) => `${val}`),
+  toUSVString,
   isReadableAborted,
   isBlobLike,
   parseOrigin,
@@ -87269,11 +87297,17 @@ const requestCache = [
   'only-if-cached'
 ]
 
+// https://fetch.spec.whatwg.org/#request-body-header-name
 const requestBodyHeader = [
   'content-encoding',
   'content-language',
   'content-location',
-  'content-type'
+  'content-type',
+  // See https://github.com/nodejs/undici/issues/2021
+  // 'Content-Length' is a forbidden header name, which is typically
+  // removed in the Headers implementation. However, undici doesn't
+  // filter out headers, so we add it here.
+  'content-length'
 ]
 
 // https://fetch.spec.whatwg.org/#enumdef-requestduplex
@@ -88351,14 +88385,7 @@ class FormData {
 
     // The delete(name) method steps are to remove all entries whose name
     // is name from this’s entry list.
-    const next = []
-    for (const entry of this[kState]) {
-      if (entry.name !== name) {
-        next.push(entry)
-      }
-    }
-
-    this[kState] = next
+    this[kState] = this[kState].filter(entry => entry.name !== name)
   }
 
   get (name) {
@@ -88721,6 +88748,7 @@ class HeadersList {
   clear () {
     this[kHeadersMap].clear()
     this[kHeadersSortedMap] = null
+    this.cookies = null
   }
 
   // https://fetch.spec.whatwg.org/#concept-header-list-append
@@ -89220,7 +89248,10 @@ const {
   isErrorLike,
   fullyReadBody,
   readableStreamClose,
-  isomorphicEncode
+  isomorphicEncode,
+  urlIsLocal,
+  urlIsHttpHttpsScheme,
+  urlHasHttpsScheme
 } = __nccwpck_require__(2538)
 const { kState, kHeaders, kGuard, kRealm, kHeadersCaseInsensitive } = __nccwpck_require__(5861)
 const assert = __nccwpck_require__(9491)
@@ -89455,7 +89486,7 @@ function finalizeAndReportTiming (response, initiatorType = 'other') {
   let cacheState = response.cacheState
 
   // 6. If originalURL’s scheme is not an HTTP(S) scheme, then return.
-  if (!/^https?:/.test(originalURL.protocol)) {
+  if (!urlIsHttpHttpsScheme(originalURL)) {
     return
   }
 
@@ -89713,10 +89744,7 @@ async function mainFetch (fetchParams, recursive = false) {
 
   // 3. If request’s local-URLs-only flag is set and request’s current URL is
   // not local, then set response to a network error.
-  if (
-    request.localURLsOnly &&
-    !/^(about|blob|data):/.test(requestCurrentURL(request).protocol)
-  ) {
+  if (request.localURLsOnly && !urlIsLocal(requestCurrentURL(request))) {
     response = makeNetworkError('local URLs only')
   }
 
@@ -89806,7 +89834,7 @@ async function mainFetch (fetchParams, recursive = false) {
       }
 
       // request’s current URL’s scheme is not an HTTP(S) scheme
-      if (!/^https?:/.test(requestCurrentURL(request).protocol)) {
+      if (!urlIsHttpHttpsScheme(requestCurrentURL(request))) {
         // Return a network error.
         return makeNetworkError('URL scheme must be a HTTP(S) scheme')
       }
@@ -90313,7 +90341,7 @@ async function httpRedirectFetch (fetchParams, response) {
 
   // 6. If locationURL’s scheme is not an HTTP(S) scheme, then return a network
   // error.
-  if (!/^https?:/.test(locationURL.protocol)) {
+  if (!urlIsHttpHttpsScheme(locationURL)) {
     return makeNetworkError('URL scheme must be a HTTP(S) scheme')
   }
 
@@ -90388,7 +90416,7 @@ async function httpRedirectFetch (fetchParams, response) {
   // 14. If request’s body is non-null, then set request’s body to the first return
   // value of safely extracting request’s body’s source.
   if (request.body != null) {
-    assert(request.body.source)
+    assert(request.body.source != null)
     request.body = safelyExtractBody(request.body.source)[0]
   }
 
@@ -90582,7 +90610,7 @@ async function httpNetworkOrCacheFetch (
   //    header if httpRequest’s header list contains that header’s name.
   //    TODO: https://github.com/whatwg/fetch/issues/1285#issuecomment-896560129
   if (!httpRequest.headersList.contains('accept-encoding')) {
-    if (/^https:/.test(requestCurrentURL(httpRequest).protocol)) {
+    if (urlHasHttpsScheme(requestCurrentURL(httpRequest))) {
       httpRequest.headersList.append('accept-encoding', 'br, gzip, deflate')
     } else {
       httpRequest.headersList.append('accept-encoding', 'gzip, deflate')
@@ -91028,6 +91056,7 @@ async function httpNetworkFetch (
       // 4. Set bytes to the result of handling content codings given
       // codings and bytes.
       let bytes
+      let isFailure
       try {
         const { done, value } = await fetchParams.controller.next()
 
@@ -91042,6 +91071,10 @@ async function httpNetworkFetch (
           bytes = undefined
         } else {
           bytes = err
+
+          // err may be propagated from the result of calling readablestream.cancel,
+          // which might not be an error. https://github.com/nodejs/undici/issues/2009
+          isFailure = true
         }
       }
 
@@ -91061,7 +91094,7 @@ async function httpNetworkFetch (
       timingInfo.decodedBodySize += bytes?.byteLength ?? 0
 
       // 6. If bytes is failure, then terminate fetchParams’s controller.
-      if (isErrorLike(bytes)) {
+      if (isFailure) {
         fetchParams.controller.terminate(bytes)
         return
       }
@@ -91162,7 +91195,9 @@ async function httpNetworkFetch (
             const val = headersList[n + 1].toString('latin1')
 
             if (key.toLowerCase() === 'content-encoding') {
-              codings = val.split(',').map((x) => x.trim())
+              // https://www.rfc-editor.org/rfc/rfc7231#section-3.1.2.1
+              // "All content-coding values are case-insensitive..."
+              codings = val.toLowerCase().split(',').map((x) => x.trim())
             } else if (key.toLowerCase() === 'location') {
               location = val
             }
@@ -91181,9 +91216,10 @@ async function httpNetworkFetch (
           // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Encoding
           if (request.method !== 'HEAD' && request.method !== 'CONNECT' && !nullBodyStatus.includes(status) && !willFollow) {
             for (const coding of codings) {
-              if (/(x-)?gzip/.test(coding)) {
+              // https://www.rfc-editor.org/rfc/rfc9112.html#section-7.2
+              if (coding === 'x-gzip' || coding === 'gzip') {
                 decoders.push(zlib.createGunzip())
-              } else if (/(x-)?deflate/.test(coding)) {
+              } else if (coding === 'deflate') {
                 decoders.push(zlib.createInflate())
               } else if (coding === 'br') {
                 decoders.push(zlib.createBrotliDecompress())
@@ -91329,6 +91365,7 @@ const { setMaxListeners, getEventListeners, defaultMaxListeners } = __nccwpck_re
 let TransformStream = globalThis.TransformStream
 
 const kInit = Symbol('init')
+const kAbortController = Symbol('abortController')
 
 const requestFinalizer = new FinalizationRegistry(({ signal, abort }) => {
   signal.removeEventListener('abort', abort)
@@ -91423,12 +91460,12 @@ class Request {
     }
 
     // 10. If init["window"] exists and is non-null, then throw a TypeError.
-    if (init.window !== undefined && init.window != null) {
+    if (init.window != null) {
       throw new TypeError(`'window' option '${window}' must be null`)
     }
 
     // 11. If init["window"] exists, then set window to "no-window".
-    if (init.window !== undefined) {
+    if ('window' in init) {
       window = 'no-window'
     }
 
@@ -91649,12 +91686,22 @@ class Request {
       if (signal.aborted) {
         ac.abort(signal.reason)
       } else {
+        // Keep a strong ref to ac while request object
+        // is alive. This is needed to prevent AbortController
+        // from being prematurely garbage collected.
+        // See, https://github.com/nodejs/undici/issues/1926.
+        this[kAbortController] = ac
+
+        const acRef = new WeakRef(ac)
         const abort = function () {
-          ac.abort(this.reason)
+          const ac = acRef.deref()
+          if (ac !== undefined) {
+            ac.abort(this.reason)
+          }
         }
 
         // Third-party AbortControllers may not work with these.
-        // See https://github.com/nodejs/undici/pull/1910#issuecomment-1464495619
+        // See, https://github.com/nodejs/undici/pull/1910#issuecomment-1464495619.
         try {
           if (getEventListeners(signal, 'abort').length >= defaultMaxListeners) {
             setMaxListeners(100, signal)
@@ -91662,7 +91709,7 @@ class Request {
         } catch {}
 
         signal.addEventListener('abort', abort, { once: true })
-        requestFinalizer.register(this, { signal, abort })
+        requestFinalizer.register(ac, { signal, abort })
       }
     }
 
@@ -91722,7 +91769,7 @@ class Request {
     // non-null, and request’s method is `GET` or `HEAD`, then throw a
     // TypeError.
     if (
-      ((init.body !== undefined && init.body != null) || inputBody != null) &&
+      (init.body != null || inputBody != null) &&
       (request.method === 'GET' || request.method === 'HEAD')
     ) {
       throw new TypeError('Request with GET/HEAD method cannot have body.')
@@ -91732,7 +91779,7 @@ class Request {
     let initBody = null
 
     // 36. If init["body"] exists and is non-null, then:
-    if (init.body !== undefined && init.body != null) {
+    if (init.body != null) {
       // 1. Let Content-Type be null.
       // 2. Set initBody and Content-Type to the result of extracting
       // init["body"], with keepalive set to request’s keepalive.
@@ -92575,9 +92622,7 @@ function makeNetworkError (reason) {
     status: 0,
     error: isError
       ? reason
-      : new Error(reason ? String(reason) : reason, {
-        cause: isError ? reason : undefined
-      }),
+      : new Error(reason ? String(reason) : reason),
     aborted: reason && reason.name === 'AbortError'
   })
 }
@@ -92893,7 +92938,7 @@ function requestBadPort (request) {
 
   // 2. If url’s scheme is an HTTP(S) scheme and url’s port is a bad port,
   // then return blocked.
-  if (/^https?:/.test(url.protocol) && badPorts.includes(url.port)) {
+  if (urlIsHttpHttpsScheme(url) && badPorts.includes(url.port)) {
     return 'blocked'
   }
 
@@ -93114,7 +93159,7 @@ function appendRequestOriginHeader (request) {
       case 'strict-origin':
       case 'strict-origin-when-cross-origin':
         // If request’s origin is a tuple origin, its scheme is "https", and request’s current URL’s scheme is not "https", then set serializedOrigin to `null`.
-        if (/^https:/.test(request.origin) && !/^https:/.test(requestCurrentURL(request))) {
+        if (request.origin && urlHasHttpsScheme(request.origin) && !urlHasHttpsScheme(requestCurrentURL(request))) {
           serializedOrigin = null
         }
         break
@@ -93774,6 +93819,41 @@ async function readAllBytes (reader, successSteps, failureSteps) {
 }
 
 /**
+ * @see https://fetch.spec.whatwg.org/#is-local
+ * @param {URL} url
+ */
+function urlIsLocal (url) {
+  assert('protocol' in url) // ensure it's a url object
+
+  const protocol = url.protocol
+
+  return protocol === 'about:' || protocol === 'blob:' || protocol === 'data:'
+}
+
+/**
+ * @param {string|URL} url
+ */
+function urlHasHttpsScheme (url) {
+  if (typeof url === 'string') {
+    return url.startsWith('https:')
+  }
+
+  return url.protocol === 'https:'
+}
+
+/**
+ * @see https://fetch.spec.whatwg.org/#http-scheme
+ * @param {URL} url
+ */
+function urlIsHttpHttpsScheme (url) {
+  assert('protocol' in url) // ensure it's a url object
+
+  const protocol = url.protocol
+
+  return protocol === 'http:' || protocol === 'https:'
+}
+
+/**
  * Fetch supports node >= 16.8.0, but Object.hasOwn was added in v16.9.0.
  */
 const hasOwn = Object.hasOwn || ((dict, key) => Object.prototype.hasOwnProperty.call(dict, key))
@@ -93817,7 +93897,10 @@ module.exports = {
   isReadableStreamLike,
   readableStreamClose,
   isomorphicEncode,
-  isomorphicDecode
+  isomorphicDecode,
+  urlIsLocal,
+  urlHasHttpsScheme,
+  urlIsHttpHttpsScheme
 }
 
 
