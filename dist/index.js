@@ -22801,8 +22801,8 @@ const utils = __importStar(__nccwpck_require__(21888));
  * that as many errors as possible can be associated with a Resource.
  */
 class RunError extends Error {
-    constructor(message) {
-        super(message);
+    constructor() {
+        super(...arguments);
         /**
          * A private field to help with RTTI that works in SxS scenarios.
          * @internal
@@ -52879,7 +52879,10 @@ exports.disconnectSync = disconnectSync;
 function rpcKeepAlive() {
     const localStore = state_1.getStore();
     let done = undefined;
-    const donePromise = debuggable_1.debuggablePromise(new Promise((resolve) => (done = resolve)), "rpcKeepAlive");
+    const donePromise = debuggable_1.debuggablePromise(new Promise((resolve) => {
+        done = resolve;
+        return done;
+    }), "rpcKeepAlive");
     localStore.settings.rpcDone = localStore.settings.rpcDone.then(() => donePromise);
     return done;
 }
