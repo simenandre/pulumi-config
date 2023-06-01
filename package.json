@@ -33,7 +33,7 @@
     "runtypes": "^6.3.1",
     "semver": "^7.3.5",
     "ts-invariant": "^0.10.3",
-    "typescript": "~5.0.4",
+    "typescript": "~5.1.0",
     "undici": "^5.21.2"
   },
   "devDependencies": {
