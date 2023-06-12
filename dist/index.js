@@ -8339,7 +8339,7 @@ class Client {
         emitter.call = call;
         let responseMessage = null;
         let receivedStatus = false;
-        const callerStackError = new Error();
+        let callerStackError = new Error();
         call.start(callProperties.metadata, {
             onReceiveMetadata: (metadata) => {
                 emitter.emit('metadata', metadata);
@@ -8363,7 +8363,7 @@ class Client {
                             code: constants_1.Status.INTERNAL,
                             details: 'No message received',
                             metadata: status.metadata
-                        }, callerStack));
+                        }, /*callerStack*/ ''));
                     }
                     else {
                         callProperties.callback(null, responseMessage);
@@ -8371,8 +8371,11 @@ class Client {
                 }
                 else {
                     const callerStack = getErrorStackString(callerStackError);
-                    callProperties.callback((0, call_1.callErrorFromStatus)(status, callerStack));
+                    callProperties.callback((0, call_1.callErrorFromStatus)(status, /*callerStack*/ ''));
                 }
+                /* Avoid retaining the callerStackError object in the call context of
+                 * the status event handler. */
+                callerStackError = null;
                 emitter.emit('status', status);
             },
         });
@@ -8416,7 +8419,7 @@ class Client {
         emitter.call = call;
         let responseMessage = null;
         let receivedStatus = false;
-        const callerStackError = new Error();
+        let callerStackError = new Error();
         call.start(callProperties.metadata, {
             onReceiveMetadata: (metadata) => {
                 emitter.emit('metadata', metadata);
@@ -8450,6 +8453,9 @@ class Client {
                     const callerStack = getErrorStackString(callerStackError);
                     callProperties.callback((0, call_1.callErrorFromStatus)(status, callerStack));
                 }
+                /* Avoid retaining the callerStackError object in the call context of
+                 * the status event handler. */
+                callerStackError = null;
                 emitter.emit('status', status);
             },
         });
@@ -8513,7 +8519,7 @@ class Client {
          * call after that. */
         stream.call = call;
         let receivedStatus = false;
-        const callerStackError = new Error();
+        let callerStackError = new Error();
         call.start(callProperties.metadata, {
             onReceiveMetadata(metadata) {
                 stream.emit('metadata', metadata);
@@ -8532,6 +8538,9 @@ class Client {
                     const callerStack = getErrorStackString(callerStackError);
                     stream.emit('error', (0, call_1.callErrorFromStatus)(status, callerStack));
                 }
+                /* Avoid retaining the callerStackError object in the call context of
+                 * the status event handler. */
+                callerStackError = null;
                 stream.emit('status', status);
             },
         });
@@ -8573,7 +8582,7 @@ class Client {
          * call after that. */
         stream.call = call;
         let receivedStatus = false;
-        const callerStackError = new Error();
+        let callerStackError = new Error();
         call.start(callProperties.metadata, {
             onReceiveMetadata(metadata) {
                 stream.emit('metadata', metadata);
@@ -8591,6 +8600,9 @@ class Client {
                     const callerStack = getErrorStackString(callerStackError);
                     stream.emit('error', (0, call_1.callErrorFromStatus)(status, callerStack));
                 }
+                /* Avoid retaining the callerStackError object in the call context of
+                 * the status event handler. */
+                callerStackError = null;
                 stream.emit('status', status);
             },
         });
@@ -11890,7 +11902,9 @@ class LoadBalancingCall {
                 break;
             case picker_1.PickResultType.DROP:
                 const { code, details } = (0, control_plane_status_1.restrictControlPlaneStatusCode)(pickResult.status.code, pickResult.status.details);
-                this.outputStatus({ code, details, metadata: pickResult.status.metadata }, 'DROP');
+                setImmediate(() => {
+                    this.outputStatus({ code, details, metadata: pickResult.status.metadata }, 'DROP');
+                });
                 break;
             case picker_1.PickResultType.TRANSIENT_FAILURE:
                 if (this.metadata.getOptions().waitForReady) {
@@ -11898,7 +11912,9 @@ class LoadBalancingCall {
                 }
                 else {
                     const { code, details } = (0, control_plane_status_1.restrictControlPlaneStatusCode)(pickResult.status.code, pickResult.status.details);
-                    this.outputStatus({ code, details, metadata: pickResult.status.metadata }, 'PROCESSED');
+                    setImmediate(() => {
+                        this.outputStatus({ code, details, metadata: pickResult.status.metadata }, 'PROCESSED');
+                    });
                 }
                 break;
             case picker_1.PickResultType.QUEUE:
@@ -17492,8 +17508,6 @@ class Subchannel {
         }
         const previousState = this.connectivityState;
         this.connectivityState = newState;
-        process.nextTick(() => {
-        });
         switch (newState) {
             case connectivity_state_1.ConnectivityState.READY:
                 this.stopBackoff();
@@ -105041,7 +105055,7 @@ __webpack_unused_export__ = setVerbosity;
 /***/ ((module) => {
 
 "use strict";
-module.exports = {"i8":"1.8.14"};
+module.exports = {"i8":"1.8.15"};
 
 /***/ }),
 
