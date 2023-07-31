@@ -15064,8 +15064,9 @@ class Http2ServerCallStream extends events_1.EventEmitter {
         }
     }
     getPeer() {
-        const socket = this.stream.session.socket;
-        if (socket.remoteAddress) {
+        var _a;
+        const socket = (_a = this.stream.session) === null || _a === void 0 ? void 0 : _a.socket;
+        if (socket === null || socket === void 0 ? void 0 : socket.remoteAddress) {
             if (socket.remotePort) {
                 return `${socket.remoteAddress}:${socket.remotePort}`;
             }
@@ -15216,7 +15217,6 @@ const logging = __nccwpck_require__(35993);
 const subchannel_address_1 = __nccwpck_require__(99905);
 const uri_parser_1 = __nccwpck_require__(65974);
 const channelz_1 = __nccwpck_require__(79975);
-const error_1 = __nccwpck_require__(22336);
 const UNLIMITED_CONNECTION_AGE_MS = ~(1 << 31);
 const KEEPALIVE_MAX_TIME_MS = ~(1 << 31);
 const KEEPALIVE_TIMEOUT_MS = 20000;
@@ -15753,8 +15753,7 @@ class Server {
         }
         return true;
     }
-    _retrieveHandler(headers) {
-        const path = headers[HTTP2_HEADER_PATH];
+    _retrieveHandler(path) {
         this.trace('Received call to method ' +
             path +
             ' at address ' +
@@ -15764,7 +15763,7 @@ class Server {
             this.trace('No handler registered for method ' +
                 path +
                 '. Sending UNIMPLEMENTED status.');
-            throw getUnimplementedStatusResponse(path);
+            return null;
         }
         return handler;
     }
@@ -15780,7 +15779,6 @@ class Server {
         call.sendError(err);
     }
     _channelzHandler(stream, headers) {
-        var _a;
         const channelzSessionInfo = this.sessions.get(stream.session);
         this.callTracker.addCallStarted();
         channelzSessionInfo === null || channelzSessionInfo === void 0 ? void 0 : channelzSessionInfo.streamTracker.addCallStarted();
@@ -15789,15 +15787,10 @@ class Server {
             channelzSessionInfo === null || channelzSessionInfo === void 0 ? void 0 : channelzSessionInfo.streamTracker.addCallFailed();
             return;
         }
-        let handler;
-        try {
-            handler = this._retrieveHandler(headers);
-        }
-        catch (err) {
-            this._respondWithError({
-                details: (0, error_1.getErrorMessage)(err),
-                code: (_a = (0, error_1.getErrorCode)(err)) !== null && _a !== void 0 ? _a : undefined
-            }, stream, channelzSessionInfo);
+        const path = headers[HTTP2_HEADER_PATH];
+        const handler = this._retrieveHandler(path);
+        if (!handler) {
+            this._respondWithError(getUnimplementedStatusResponse(path), stream, channelzSessionInfo);
             return;
         }
         const call = new server_call_1.Http2ServerCallStream(stream, handler, this.options);
@@ -15837,19 +15830,13 @@ class Server {
         }
     }
     _streamHandler(stream, headers) {
-        var _a;
         if (this._verifyContentType(stream, headers) !== true) {
             return;
         }
-        let handler;
-        try {
-            handler = this._retrieveHandler(headers);
-        }
-        catch (err) {
-            this._respondWithError({
-                details: (0, error_1.getErrorMessage)(err),
-                code: (_a = (0, error_1.getErrorCode)(err)) !== null && _a !== void 0 ? _a : undefined
-            }, stream, null);
+        const path = headers[HTTP2_HEADER_PATH];
+        const handler = this._retrieveHandler(path);
+        if (!handler) {
+            this._respondWithError(getUnimplementedStatusResponse(path), stream, null);
             return;
         }
         const call = new server_call_1.Http2ServerCallStream(stream, handler, this.options);
@@ -17803,6 +17790,15 @@ class Http2Transport {
          */
         this.keepaliveTimeoutMs = KEEPALIVE_TIMEOUT_MS;
         /**
+         * Timer reference for timeout that indicates when to send the next ping
+         */
+        this.keepaliveTimerId = null;
+        /**
+         * Indicates that the keepalive timer ran out while there were no active
+         * calls, and a ping should be sent the next time a call starts.
+         */
+        this.pendingSendKeepalivePing = false;
+        /**
          * Timer reference tracking when the most recent ping will be considered lost
          */
         this.keepaliveTimeoutId = null;
@@ -17820,6 +17816,13 @@ class Http2Transport {
         this.messagesReceived = 0;
         this.lastMessageSentTimestamp = null;
         this.lastMessageReceivedTimestamp = null;
+        /* Populate subchannelAddressString and channelzRef before doing anything
+         * else, because they are used in the trace methods. */
+        this.subchannelAddressString = (0, subchannel_address_1.subchannelAddressToString)(subchannelAddress);
+        if (options['grpc.enable_channelz'] === 0) {
+            this.channelzEnabled = false;
+        }
+        this.channelzRef = (0, channelz_1.registerChannelzSocket)(this.subchannelAddressString, () => this.getChannelzInfo(), this.channelzEnabled);
         // Build user-agent string.
         this.userAgent = [
             options['grpc.primary_user_agent'],
@@ -17841,16 +17844,6 @@ class Http2Transport {
         else {
             this.keepaliveWithoutCalls = false;
         }
-        this.keepaliveIntervalId = setTimeout(() => { }, 0);
-        clearTimeout(this.keepaliveIntervalId);
-        if (this.keepaliveWithoutCalls) {
-            this.startKeepalivePings();
-        }
-        this.subchannelAddressString = (0, subchannel_address_1.subchannelAddressToString)(subchannelAddress);
-        if (options['grpc.enable_channelz'] === 0) {
-            this.channelzEnabled = false;
-        }
-        this.channelzRef = (0, channelz_1.registerChannelzSocket)(this.subchannelAddressString, () => this.getChannelzInfo(), this.channelzEnabled);
         session.once('close', () => {
             this.trace('session closed');
             this.stopKeepalivePings();
@@ -17887,6 +17880,11 @@ class Http2Transport {
                     ': ' +
                     JSON.stringify(settings));
             });
+        }
+        /* Start the keepalive timer last, because this can trigger trace logs,
+         * which should only happen after everything else is set up. */
+        if (this.keepaliveWithoutCalls) {
+            this.maybeStartKeepalivePingTimer();
         }
     }
     getChannelzInfo() {
@@ -17974,6 +17972,13 @@ class Http2Transport {
     addDisconnectListener(listener) {
         this.disconnectListeners.push(listener);
     }
+    clearKeepaliveTimer() {
+        if (!this.keepaliveTimerId) {
+            return;
+        }
+        clearTimeout(this.keepaliveTimerId);
+        this.keepaliveTimerId = null;
+    }
     clearKeepaliveTimeout() {
         if (!this.keepaliveTimeoutId) {
             return;
@@ -17981,8 +17986,16 @@ class Http2Transport {
         clearTimeout(this.keepaliveTimeoutId);
         this.keepaliveTimeoutId = null;
     }
-    sendPing() {
+    canSendPing() {
+        return this.keepaliveTimeMs > 0 && (this.keepaliveWithoutCalls || this.activeCalls.size > 0);
+    }
+    maybeSendPing() {
         var _a, _b;
+        this.clearKeepaliveTimer();
+        if (!this.canSendPing()) {
+            this.pendingSendKeepalivePing = true;
+            return;
+        }
         if (this.channelzEnabled) {
             this.keepalivesSent += 1;
         }
@@ -17998,6 +18011,7 @@ class Http2Transport {
             this.session.ping((err, duration, payload) => {
                 this.keepaliveTrace('Received ping response');
                 this.clearKeepaliveTimeout();
+                this.maybeStartKeepalivePingTimer();
             });
         }
         catch (e) {
@@ -18006,44 +18020,51 @@ class Http2Transport {
             this.handleDisconnect();
         }
     }
-    startKeepalivePings() {
+    /**
+     * Starts the keepalive ping timer if appropriate. If the timer already ran
+     * out while there were no active requests, instead send a ping immediately.
+     * If the ping timer is already running or a ping is currently in flight,
+     * instead do nothing and wait for them to resolve.
+     */
+    maybeStartKeepalivePingTimer() {
         var _a, _b;
-        if (this.keepaliveTimeMs < 0) {
+        if (!this.canSendPing()) {
             return;
         }
-        this.keepaliveIntervalId = setInterval(() => {
-            this.sendPing();
-        }, this.keepaliveTimeMs);
-        (_b = (_a = this.keepaliveIntervalId).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
-        /* Don't send a ping immediately because whatever caused us to start
-         * sending pings should also involve some network activity. */
+        if (this.pendingSendKeepalivePing) {
+            this.pendingSendKeepalivePing = false;
+            this.maybeSendPing();
+        }
+        else if (!this.keepaliveTimerId && !this.keepaliveTimeoutId) {
+            this.keepaliveTrace('Starting keepalive timer for ' + this.keepaliveTimeMs + 'ms');
+            this.keepaliveTimerId = (_b = (_a = setTimeout(() => {
+                this.maybeSendPing();
+            }, this.keepaliveTimeMs)).unref) === null || _b === void 0 ? void 0 : _b.call(_a);
+        }
+        /* Otherwise, there is already either a keepalive timer or a ping pending,
+         * wait for those to resolve. */
     }
-    /**
-     * Stop keepalive pings when terminating a connection. This discards the
-     * outstanding ping timeout, so it should not be called if the same
-     * connection will still be used.
-     */
     stopKeepalivePings() {
-        clearInterval(this.keepaliveIntervalId);
+        if (this.keepaliveTimerId) {
+            clearTimeout(this.keepaliveTimerId);
+            this.keepaliveTimerId = null;
+        }
         this.clearKeepaliveTimeout();
     }
     removeActiveCall(call) {
         this.activeCalls.delete(call);
         if (this.activeCalls.size === 0) {
             this.session.unref();
-            if (!this.keepaliveWithoutCalls) {
-                this.stopKeepalivePings();
-            }
         }
     }
     addActiveCall(call) {
-        if (this.activeCalls.size === 0) {
+        this.activeCalls.add(call);
+        if (this.activeCalls.size === 1) {
             this.session.ref();
             if (!this.keepaliveWithoutCalls) {
-                this.startKeepalivePings();
+                this.maybeStartKeepalivePingTimer();
             }
         }
-        this.activeCalls.add(call);
     }
     createCall(metadata, host, method, listener, subchannelCallStatsTracker) {
         const headers = metadata.toHttp2Headers();
@@ -83086,7 +83107,7 @@ var __disposeResources;
 
     __addDisposableResource = function (env, value, async) {
         if (value !== null && value !== void 0) {
-            if (typeof value !== "object") throw new TypeError("Object expected.");
+            if (typeof value !== "object" && typeof value !== "function") throw new TypeError("Object expected.");
             var dispose;
             if (async) {
                 if (!Symbol.asyncDispose) throw new TypeError("Symbol.asyncDispose is not defined.");
@@ -105329,7 +105350,7 @@ __webpack_unused_export__ = setVerbosity;
 /***/ ((module) => {
 
 "use strict";
-module.exports = {"i8":"1.8.18"};
+module.exports = {"i8":"1.8.21"};
 
 /***/ }),
 
